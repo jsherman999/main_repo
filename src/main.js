@@ -26,7 +26,7 @@ class ScreenshotDocumenter {
     console.log('✅ Initialization complete');
   }
 
-  async processScreenshot(screenshotPath, context) {
+  async processScreenshot(screenshotPath, context, debugCallback = null) {
     console.log(`\n📸 Processing screenshot: ${screenshotPath}`);
     console.log(`📝 Application: ${context.appName}`);
 
@@ -44,7 +44,8 @@ class ScreenshotDocumenter {
     console.log('\n🎯 Starting multi-agent documentation generation...\n');
     const result = await this.orchestrator.generateDocumentation(
       screenshot,
-      context
+      context,
+      debugCallback
     );
 
     if (!result.success) {

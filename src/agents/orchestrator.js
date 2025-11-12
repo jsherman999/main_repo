@@ -61,33 +61,77 @@ class OrchestratorAgent {
     console.log('✅ All agents initialized');
   }
 
-  async generateDocumentation(screenshot, context) {
+  async generateDocumentation(screenshot, context, debugCallback = null) {
     console.log('🎯 Orchestrator: Starting documentation generation...');
     const startTime = Date.now();
 
     // Step 1: Plan the workflow
+    if (debugCallback) {
+      debugCallback('info', 'Orchestrator', 'Planning workflow', { complexity: 'analyzing' });
+    }
+
     const plan = await this.planWorkflow(screenshot, context);
     console.log('📋 Workflow plan created:', plan.complexity, 'interface');
+
+    if (debugCallback) {
+      debugCallback('info', 'Orchestrator', 'Workflow plan created', {
+        complexity: plan.complexity,
+        estimatedElements: plan.estimated_elements,
+        estimatedTime: `${plan.estimated_time}s`
+      });
+    }
 
     try {
       // Step 2: UI Analysis (Sonnet)
       console.log('🔍 Running UI Analysis...');
+      if (debugCallback) {
+        debugCallback('start', 'Analyst Agent', 'Starting UI analysis with Claude Sonnet 4', {
+          model: 'claude-sonnet-4-20250514'
+        });
+      }
+
       const analysis = await this.agents.analyst.execute({
         screenshot,
         context
       });
       console.log(`✅ Analysis complete: ${analysis.metadata.total_elements} elements found`);
 
+      if (debugCallback) {
+        debugCallback('complete', 'Analyst Agent', 'UI analysis complete', {
+          elementsFound: analysis.metadata.total_elements,
+          tokensUsed: this.agents.analyst.getTokenUsage().total
+        });
+      }
+
       // Step 3: Content Generation (Sonnet)
       console.log('✍️ Running Content Generation...');
+      if (debugCallback) {
+        debugCallback('start', 'Content Agent', 'Generating documentation content with Claude Sonnet 4', {
+          model: 'claude-sonnet-4-20250514'
+        });
+      }
+
       const content = await this.agents.content.execute({
         analysis,
         context
       });
       console.log(`✅ Content generated: ${content.tooltips.length} tooltips`);
 
+      if (debugCallback) {
+        debugCallback('complete', 'Content Agent', 'Content generation complete', {
+          tooltipsGenerated: content.tooltips.length,
+          tokensUsed: this.agents.content.getTokenUsage().total
+        });
+      }
+
       // Step 4: HTML Building (Haiku)
       console.log('🏗️ Running HTML Builder...');
+      if (debugCallback) {
+        debugCallback('start', 'Builder Agent', 'Building interactive HTML with Claude Haiku 3.5', {
+          model: 'claude-3-5-haiku-20241022'
+        });
+      }
+
       const htmlPackage = await this.agents.builder.execute({
         screenshot,
         analysis,
@@ -96,18 +140,49 @@ class OrchestratorAgent {
       });
       console.log('✅ HTML package built');
 
+      if (debugCallback) {
+        debugCallback('complete', 'Builder Agent', 'HTML package built successfully', {
+          filesGenerated: Object.keys(htmlPackage).length,
+          tokensUsed: this.agents.builder.getTokenUsage().total
+        });
+      }
+
       // Step 5: Validation (Haiku)
       console.log('✅ Running Validator...');
+      if (debugCallback) {
+        debugCallback('start', 'Validator Agent', 'Validating output quality with Claude Haiku 3.5', {
+          model: 'claude-3-5-haiku-20241022'
+        });
+      }
+
       const validation = await this.agents.validator.execute({
         htmlPackage
       });
       console.log(`✅ Validation complete: ${validation.overall_score}/100`);
 
+      if (debugCallback) {
+        debugCallback('complete', 'Validator Agent', 'Validation complete', {
+          overallScore: `${validation.overall_score}/100`,
+          validationPassed: validation.validation_passed,
+          tokensUsed: this.agents.validator.getTokenUsage().total
+        });
+      }
+
       // Check validation results
       if (!validation.validation_passed) {
         console.log('⚠️ Validation issues found');
+        if (debugCallback) {
+          debugCallback('info', 'Orchestrator', 'Validation warnings found', {
+            warnings: validation.warnings?.length || 0
+          });
+        }
         if (validation.critical_issues && validation.critical_issues.length > 0) {
           console.log('❌ Critical issues:', validation.critical_issues);
+          if (debugCallback) {
+            debugCallback('error', 'Orchestrator', 'Critical validation issues found', {
+              criticalIssues: validation.critical_issues.length
+            });
+          }
           return await this.handleValidationFailure(
             htmlPackage,
             validation,
@@ -124,6 +199,14 @@ class OrchestratorAgent {
 
       const processingTime = Date.now() - startTime;
 
+      if (debugCallback) {
+        debugCallback('complete', 'Orchestrator', 'All agents completed successfully', {
+          processingTime: `${(processingTime / 1000).toFixed(1)}s`,
+          totalTokens: this.totalTokens.total.toLocaleString(),
+          complexity: plan.complexity
+        });
+      }
+
       return {
         success: true,
         package: htmlPackage,
@@ -138,6 +221,11 @@ class OrchestratorAgent {
 
     } catch (error) {
       console.error('❌ Error during documentation generation:', error);
+      if (debugCallback) {
+        debugCallback('error', 'Orchestrator', 'Documentation generation failed', {
+          error: error.message
+        });
+      }
       return {
         success: false,
         error: error.message,

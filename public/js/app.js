@@ -1,6 +1,9 @@
 // App State
 let currentFile = null;
 let activeServers = {}; // Track active artifact servers
+let agentWatchEnabled = false;
+let agentWatchEventSource = null;
+let currentJobId = null;
 
 // DOM Elements
 const dropZone = document.getElementById('drop-zone');
@@ -22,6 +25,10 @@ const createAnotherBtn = document.getElementById('create-another');
 const historyList = document.getElementById('history-list');
 const historyCount = document.getElementById('history-count');
 const statusIndicator = document.getElementById('status-indicator');
+const agentWatchToggle = document.getElementById('agent-watch-toggle');
+const agentWatchPanel = document.getElementById('agent-watch-panel');
+const debugLog = document.getElementById('debug-log');
+const clearDebugBtn = document.getElementById('clear-debug');
 
 // Initialize
 document.addEventListener('DOMContentLoaded', () => {
@@ -50,6 +57,113 @@ function setupEventListeners() {
 
     // Create another
     createAnotherBtn.addEventListener('click', resetForm);
+
+    // Agent watch toggle
+    agentWatchToggle.addEventListener('change', handleAgentWatchToggle);
+
+    // Clear debug log
+    clearDebugBtn.addEventListener('click', clearDebugLog);
+}
+
+// Agent Watch Handlers
+function handleAgentWatchToggle(e) {
+    agentWatchEnabled = e.target.checked;
+
+    if (agentWatchEnabled) {
+        agentWatchPanel.classList.remove('hidden');
+        addDebugMessage('info', 'System', 'Agent Watch enabled. Monitoring agent activity...');
+    } else {
+        agentWatchPanel.classList.add('hidden');
+        if (agentWatchEventSource) {
+            agentWatchEventSource.close();
+            agentWatchEventSource = null;
+        }
+    }
+}
+
+function clearDebugLog() {
+    debugLog.innerHTML = `
+        <div class="debug-empty">
+            <p>Debug log cleared</p>
+            <span>Waiting for agent activity...</span>
+        </div>
+    `;
+}
+
+function addDebugMessage(type, agent, message, meta = null) {
+    // Remove empty state if present
+    const emptyState = debugLog.querySelector('.debug-empty');
+    if (emptyState) {
+        emptyState.remove();
+    }
+
+    const entry = document.createElement('div');
+    entry.className = `debug-entry agent-${type}`;
+
+    const timestamp = new Date().toLocaleTimeString();
+
+    let html = `
+        <div class="debug-timestamp">${timestamp}</div>
+        <div class="debug-agent">[${agent}]</div>
+        <div class="debug-message">${message}</div>
+    `;
+
+    if (meta) {
+        html += '<div class="debug-meta">';
+        for (const [key, value] of Object.entries(meta)) {
+            html += `
+                <div class="debug-meta-item">
+                    <span class="debug-meta-label">${key}:</span>
+                    <span class="debug-meta-value">${value}</span>
+                </div>
+            `;
+        }
+        html += '</div>';
+    }
+
+    entry.innerHTML = html;
+    debugLog.appendChild(entry);
+
+    // Auto-scroll to bottom
+    debugLog.scrollTop = debugLog.scrollHeight;
+}
+
+function connectAgentWatch(jobId) {
+    if (!agentWatchEnabled) return;
+
+    currentJobId = jobId;
+
+    // Close existing connection
+    if (agentWatchEventSource) {
+        agentWatchEventSource.close();
+    }
+
+    // Connect to SSE endpoint
+    agentWatchEventSource = new EventSource(`/api/debug/${jobId}`);
+
+    agentWatchEventSource.onmessage = (event) => {
+        const data = JSON.parse(event.data);
+        addDebugMessage(data.type, data.agent, data.message, data.meta);
+    };
+
+    agentWatchEventSource.onerror = (error) => {
+        console.error('Agent Watch SSE error:', error);
+        agentWatchEventSource.close();
+        agentWatchEventSource = null;
+    };
+
+    addDebugMessage('start', 'System', `Connected to job ${jobId}`);
+}
+
+function disconnectAgentWatch() {
+    if (agentWatchEventSource) {
+        agentWatchEventSource.close();
+        agentWatchEventSource = null;
+        if (agentWatchEnabled) {
+            addDebugMessage('complete', 'System', 'Processing complete. Connection closed.');
+        }
+    }
+    currentJobId = null;
 }
 
 // Drag and Drop Handlers
@@ -133,6 +247,9 @@ async function handleSubmit(e) {
         return;
     }
 
+    // Generate job ID for agent watch
+    const jobId = Date.now().toString() + '-' + Math.random().toString(36).substr(2, 9);
+
     const formData = new FormData();
     formData.append('screenshot', currentFile);
     formData.append('appName', document.getElementById('app-name').value);
@@ -140,6 +257,12 @@ async function handleSubmit(e) {
     formData.append('vendor', document.getElementById('vendor').value);
     formData.append('links', document.getElementById('links').value);
     formData.append('notes', document.getElementById('notes').value);
+    formData.append('jobId', jobId);
+
+    // Connect agent watch if enabled
+    if (agentWatchEnabled) {
+        connectAgentWatch(jobId);
+    }
 
     // Show progress
     uploadForm.classList.add('hidden');
@@ -178,6 +301,9 @@ async function handleSubmit(e) {
         progressBarFill.style.width = '100%';
 
         if (data.success) {
+            // Disconnect agent watch
+            disconnectAgentWatch();
+
             // Show result
             setTimeout(() => {
                 progressSection.classList.add('hidden');
@@ -192,6 +318,9 @@ async function handleSubmit(e) {
         progressSection.classList.add('hidden');
         uploadForm.classList.remove('hidden');
         showNotification('Error: ' + error.message, 'error');
+
+        // Disconnect agent watch on error
+        disconnectAgentWatch();
     }
 }
 

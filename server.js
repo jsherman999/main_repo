@@ -21,6 +21,9 @@ const PORT = process.env.PORT || 3000;
 const activeServers = new Map(); // Map<entryId, { server, port, url }>
 let nextPort = 9000;
 
+// Debug clients management (for Agent Watch)
+const debugClients = new Map(); // Map<jobId, response object>
+
 // Configure multer for file uploads
 const storage = multer.diskStorage({
   destination: async (req, file, cb) => {
@@ -78,6 +81,16 @@ async function addToHistory(entry) {
   history.unshift(entry); // Add to beginning
   await saveHistory(history);
   return history;
+}
+
+// Debug Event Helpers
+
+function emitDebugEvent(jobId, type, agent, message, meta = null) {
+  const client = debugClients.get(jobId);
+  if (client) {
+    const eventData = JSON.stringify({ type, agent, message, meta });
+    client.write(`data: ${eventData}\n\n`);
+  }
 }
 
 // Artifact Server Helpers
@@ -246,7 +259,7 @@ app.post('/api/process', upload.single('screenshot'), async (req, res) => {
       return res.status(400).json({ success: false, error: 'No file uploaded' });
     }
 
-    const { appName, description, vendor, links, notes } = req.body;
+    const { appName, description, vendor, links, notes, jobId } = req.body;
 
     if (!appName) {
       // Clean up uploaded file
@@ -254,8 +267,22 @@ app.post('/api/process', upload.single('screenshot'), async (req, res) => {
       return res.status(400).json({ success: false, error: 'App name is required' });
     }
 
+    // Emit initial debug event
+    if (jobId) {
+      emitDebugEvent(jobId, 'start', 'Server', 'Starting documentation generation', {
+        appName,
+        filename: req.file.originalname,
+        size: `${(req.file.size / 1024).toFixed(2)} KB`
+      });
+    }
+
     // Process the screenshot
     const documenter = new ScreenshotDocumenter();
+
+    if (jobId) {
+      emitDebugEvent(jobId, 'info', 'Server', 'Initializing multi-agent system');
+    }
+
     await documenter.initialize();
 
     const context = {
@@ -269,9 +296,25 @@ app.post('/api/process', upload.single('screenshot'), async (req, res) => {
     console.log(`\n📸 Processing: ${req.file.originalname}`);
     console.log(`📝 App: ${context.appName}`);
 
-    const result = await documenter.processScreenshot(req.file.path, context);
+    if (jobId) {
+      emitDebugEvent(jobId, 'info', 'Orchestrator', 'Starting workflow planning', {
+        appName: context.appName
+      });
+    }
+
+    const result = await documenter.processScreenshot(req.file.path, context, jobId ? (type, agent, message, meta) => {
+      emitDebugEvent(jobId, type, agent, message, meta);
+    } : null);
 
     if (result.success) {
+      if (jobId) {
+        emitDebugEvent(jobId, 'complete', 'Server', 'Documentation generated successfully', {
+          processingTime: `${(result.metadata.processing_time / 1000).toFixed(1)}s`,
+          validationScore: `${result.validation.overall_score}/100`,
+          estimatedCost: `$${result.costEstimate.toFixed(4)}`
+        });
+      }
+
       // Add to history
       const historyEntry = {
         id: Date.now().toString(),
@@ -298,6 +341,12 @@ app.post('/api/process', upload.single('screenshot'), async (req, res) => {
         entry: historyEntry
       });
     } else {
+      if (jobId) {
+        emitDebugEvent(jobId, 'error', 'Server', 'Documentation generation failed', {
+          error: result.error || 'Unknown error'
+        });
+      }
+
       // Clean up uploaded file
       await fs.unlink(req.file.path);
 
@@ -309,6 +358,13 @@ app.post('/api/process', upload.single('screenshot'), async (req, res) => {
     }
   } catch (error) {
     console.error('Error processing screenshot:', error);
+
+    const { jobId } = req.body;
+    if (jobId) {
+      emitDebugEvent(jobId, 'error', 'Server', 'Unexpected error during processing', {
+        error: error.message
+      });
+    }
 
     // Clean up uploaded file if it exists
     if (req.file) {
@@ -434,6 +490,36 @@ app.get('/api/servers', (req, res) => {
     };
   }
   res.json({ success: true, servers });
+});
+
+// SSE endpoint for agent debug feed
+app.get('/api/debug/:jobId', (req, res) => {
+  const jobId = req.params.jobId;
+
+  // Set SSE headers
+  res.setHeader('Content-Type', 'text/event-stream');
+  res.setHeader('Cache-Control', 'no-cache');
+  res.setHeader('Connection', 'keep-alive');
+  res.setHeader('X-Accel-Buffering', 'no'); // Disable nginx buffering
+
+  // Store the response object for this job
+  debugClients.set(jobId, res);
+
+  console.log(`🔍 Agent Watch connected for job ${jobId}`);
+
+  // Send initial connection message
+  res.write(`data: ${JSON.stringify({
+    type: 'start',
+    agent: 'System',
+    message: 'Agent Watch connected',
+    meta: { jobId }
+  })}\n\n`);
+
+  // Remove client on disconnect
+  req.on('close', () => {
+    debugClients.delete(jobId);
+    console.log(`🔍 Agent Watch disconnected for job ${jobId}`);
+  });
 });
 
 // Health check
