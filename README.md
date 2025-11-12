@@ -8,11 +8,35 @@ This project implements a sophisticated multi-agent system that analyzes screens
 
 ### Key Features
 
+- **Stylish Web UI**: Modern drag-and-drop interface for easy screenshot uploads
 - **Multi-Agent Architecture**: Specialized agents for analysis, content creation, HTML generation, and validation
 - **Cost-Optimized**: Hybrid approach using Sonnet for cognitive tasks and Haiku for execution (40-50% cost savings)
 - **Interactive Output**: Beautiful, dark-themed HTML guides with hover tooltips
 - **Comprehensive Documentation**: Workflow guides, technical specs, and keyboard shortcuts
+- **History Management**: Save and access previously generated documentation packages
 - **Offline Ready**: Self-contained HTML with no external dependencies
+
+## 🌐 Web Interface
+
+The Screenshot Documenter now includes a beautiful web interface for easy usage:
+
+- **Drag & Drop**: Simply drag your screenshot into the browser or click to upload
+- **Form Fields**: Add application name, description, vendor info, and helpful links
+- **Real-time Progress**: Watch as agents process your screenshot
+- **History View**: Access all previously generated documentation with original metadata
+- **Download Management**: Download packages directly from the history panel
+
+### Quick Start (Web UI)
+
+```bash
+# Install dependencies
+npm install
+
+# Start the web server
+npm start
+
+# Open browser to http://localhost:3000
+```
 
 ## 🏗️ Architecture
 
@@ -89,10 +113,19 @@ screenshot-documenter/
 │   ├── agents.json                   # Agent configurations
 │   └── models.json                   # Model settings
 │
+├── public/                           # Web UI files
+│   ├── index.html                    # Main web interface
+│   ├── css/
+│   │   └── styles.css                # Styles for web UI
+│   └── js/
+│       └── app.js                    # Frontend JavaScript
+│
 ├── examples/                         # Example screenshots
 ├── output/                           # Generated documentation
+├── data/                             # History storage
 ├── tests/                            # Test files
 │
+├── server.js                         # Web server
 ├── package.json
 ├── .env.example
 └── README.md
@@ -115,20 +148,37 @@ cp .env.example .env
 # Edit .env and add your ANTHROPIC_API_KEY
 ```
 
-### 2. Basic Usage
+### 2. Usage Options
+
+#### Option A: Web Interface (Recommended)
 
 ```bash
-node src/main.js path/to/screenshot.png \
+# Start the web server
+npm start
+
+# Open your browser to http://localhost:3000
+# Drag and drop your screenshot or click to upload
+# Fill in the form and click "Generate Documentation"
+```
+
+#### Option B: Command Line Interface
+
+```bash
+# Run directly via CLI
+npm run cli path/to/screenshot.png \
   --app-name "Your App Name" \
   --description "Description of the screenshot" \
   --vendor "Vendor Name" \
   --links "https://example.com"
+
+# Or use node directly
+node src/main.js path/to/screenshot.png --app-name "Your App"
 ```
 
-### 3. Example
+### 3. Example (CLI)
 
 ```bash
-node src/main.js examples/onshape-screenshot.png \
+npm run cli examples/onshape-screenshot.png \
   --app-name "Onshape CAD" \
   --description "3D CAD interface for robotics design" \
   --vendor "PTC" \

@@ -5,9 +5,10 @@
   "type": "module",
   "main": "src/main.js",
   "scripts": {
-    "start": "node src/main.js",
-    "test": "node tests/integration-test.js",
-    "dev": "node --watch src/main.js"
+    "start": "node server.js",
+    "dev": "node --watch server.js",
+    "cli": "node src/main.js",
+    "test": "node tests/integration-test.js"
   },
   "keywords": [
     "documentation",
@@ -22,7 +23,9 @@
   "dependencies": {
     "@anthropic-ai/sdk": "^0.32.0",
     "dotenv": "^16.4.5",
+    "express": "^4.19.2",
     "jszip": "^3.10.1",
+    "multer": "^1.4.5-lts.1",
     "uuid": "^10.0.0"
   },
   "devDependencies": {},

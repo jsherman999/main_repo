@@ -9,6 +9,10 @@ node_modules/
 # Output directory
 output/
 
+# Uploads and data
+uploads/
+data/
+
 # Logs
 logs/
 *.log
