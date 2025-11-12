@@ -12,12 +12,15 @@ export async function loadImage(imagePath) {
   const buffer = await fs.readFile(imagePath);
   const stats = await fs.stat(imagePath);
 
+  // Detect actual MIME type from file content (magic bytes)
+  const actualMimeType = detectMimeTypeFromBuffer(buffer);
+
   return {
     buffer: buffer,
     path: imagePath,
     filename: path.basename(imagePath),
     size: stats.size,
-    mimetype: getMimeType(imagePath),
+    mimetype: actualMimeType,
     base64: buffer.toString('base64')
   };
 }
@@ -39,7 +42,37 @@ export async function imageToBase64(imagePathOrBuffer) {
 }
 
 /**
- * Get MIME type from file extension
+ * Detect MIME type from file buffer by checking magic bytes (file signature)
+ */
+export function detectMimeTypeFromBuffer(buffer) {
+  // PNG: 89 50 4E 47 (‰PNG)
+  if (buffer[0] === 0x89 && buffer[1] === 0x50 && buffer[2] === 0x4E && buffer[3] === 0x47) {
+    return 'image/png';
+  }
+
+  // JPEG: FF D8 FF
+  if (buffer[0] === 0xFF && buffer[1] === 0xD8 && buffer[2] === 0xFF) {
+    return 'image/jpeg';
+  }
+
+  // WebP: RIFF....WEBP
+  if (buffer[0] === 0x52 && buffer[1] === 0x49 && buffer[2] === 0x46 && buffer[3] === 0x46 &&
+      buffer[8] === 0x57 && buffer[9] === 0x45 && buffer[10] === 0x42 && buffer[11] === 0x50) {
+    return 'image/webp';
+  }
+
+  // GIF: GIF87a or GIF89a
+  if (buffer[0] === 0x47 && buffer[1] === 0x49 && buffer[2] === 0x46) {
+    return 'image/gif';
+  }
+
+  // Default to PNG if can't detect (conservative choice)
+  console.warn('Could not detect image type from buffer, defaulting to image/png');
+  return 'image/png';
+}
+
+/**
+ * Get MIME type from file extension (fallback method)
  */
 export function getMimeType(filename) {
   const ext = path.extname(filename).toLowerCase();
@@ -113,6 +146,6 @@ export async function getImageInfo(imagePath) {
     size: stats.size,
     width,
     height,
-    mimetype: getMimeType(imagePath)
+    mimetype: detectMimeTypeFromBuffer(buffer)
   };
 }
