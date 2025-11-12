@@ -3,6 +3,9 @@ import multer from 'multer';
 import { promises as fs } from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import http from 'http';
+import { networkInterfaces } from 'os';
+import JSZip from 'jszip';
 import ScreenshotDocumenter from './src/main.js';
 import dotenv from 'dotenv';
 
@@ -13,6 +16,10 @@ const __dirname = path.dirname(__filename);
 
 const app = express();
 const PORT = process.env.PORT || 3000;
+
+// Artifact server management
+const activeServers = new Map(); // Map<entryId, { server, port, url }>
+let nextPort = 9000;
 
 // Configure multer for file uploads
 const storage = multer.diskStorage({
@@ -71,6 +78,148 @@ async function addToHistory(entry) {
   history.unshift(entry); // Add to beginning
   await saveHistory(history);
   return history;
+}
+
+// Artifact Server Helpers
+
+function getLocalNetworkIP() {
+  const nets = networkInterfaces();
+  for (const name of Object.keys(nets)) {
+    for (const net of nets[name]) {
+      // Skip internal and non-IPv4 addresses
+      if (net.family === 'IPv4' && !net.internal) {
+        return net.address;
+      }
+    }
+  }
+  return 'localhost';
+}
+
+async function extractZipToTemp(zipPath, entryId) {
+  const tempDir = path.join(__dirname, 'temp', entryId);
+  await fs.mkdir(tempDir, { recursive: true });
+
+  // Read ZIP file
+  const zipData = await fs.readFile(zipPath);
+  const zip = await JSZip.loadAsync(zipData);
+
+  // Extract all files
+  for (const [filename, file] of Object.entries(zip.files)) {
+    if (!file.dir) {
+      const content = await file.async('nodebuffer');
+      const filePath = path.join(tempDir, filename);
+      await fs.mkdir(path.dirname(filePath), { recursive: true });
+      await fs.writeFile(filePath, content);
+    }
+  }
+
+  return tempDir;
+}
+
+async function startArtifactServer(entryId, zipPath) {
+  // Check if already serving
+  if (activeServers.has(entryId)) {
+    return activeServers.get(entryId);
+  }
+
+  // Extract ZIP to temp directory
+  const tempDir = await extractZipToTemp(zipPath, entryId);
+
+  // Determine port
+  const port = nextPort++;
+
+  // Create simple HTTP server
+  const server = http.createServer(async (req, res) => {
+    try {
+      // Default to guide.html
+      let filePath = path.join(tempDir, req.url === '/' ? 'guide.html' : req.url);
+
+      // Security: prevent directory traversal
+      const normalizedPath = path.normalize(filePath);
+      if (!normalizedPath.startsWith(tempDir)) {
+        res.writeHead(403, { 'Content-Type': 'text/plain' });
+        res.end('Forbidden');
+        return;
+      }
+
+      // Read and serve file
+      const content = await fs.readFile(filePath);
+
+      // Set content type based on extension
+      const ext = path.extname(filePath).toLowerCase();
+      const contentTypes = {
+        '.html': 'text/html',
+        '.css': 'text/css',
+        '.js': 'application/javascript',
+        '.json': 'application/json',
+        '.png': 'image/png',
+        '.jpg': 'image/jpeg',
+        '.jpeg': 'image/jpeg',
+        '.gif': 'image/gif',
+        '.svg': 'image/svg+xml',
+        '.txt': 'text/plain',
+        '.md': 'text/markdown'
+      };
+
+      res.writeHead(200, { 'Content-Type': contentTypes[ext] || 'application/octet-stream' });
+      res.end(content);
+    } catch (error) {
+      if (error.code === 'ENOENT') {
+        res.writeHead(404, { 'Content-Type': 'text/plain' });
+        res.end('Not Found');
+      } else {
+        res.writeHead(500, { 'Content-Type': 'text/plain' });
+        res.end('Internal Server Error');
+      }
+    }
+  });
+
+  // Start server
+  await new Promise((resolve, reject) => {
+    server.listen(port, '0.0.0.0', () => {
+      console.log(`📡 Artifact server started for ${entryId} on port ${port}`);
+      resolve();
+    });
+    server.on('error', reject);
+  });
+
+  const localIP = getLocalNetworkIP();
+  const url = `http://${localIP}:${port}`;
+
+  const serverInfo = {
+    server,
+    port,
+    url,
+    tempDir
+  };
+
+  activeServers.set(entryId, serverInfo);
+  return serverInfo;
+}
+
+async function stopArtifactServer(entryId) {
+  const serverInfo = activeServers.get(entryId);
+  if (!serverInfo) {
+    return false;
+  }
+
+  // Close server
+  await new Promise((resolve) => {
+    serverInfo.server.close(() => {
+      console.log(`🛑 Artifact server stopped for ${entryId} (port ${serverInfo.port})`);
+      resolve();
+    });
+  });
+
+  // Clean up temp directory
+  try {
+    await fs.rm(serverInfo.tempDir, { recursive: true, force: true });
+  } catch (error) {
+    console.warn(`Warning: Could not delete temp directory: ${error.message}`);
+  }
+
+  activeServers.delete(entryId);
+  return true;
 }
 
 // Routes
@@ -201,6 +350,11 @@ app.delete('/api/history/:id', async (req, res) => {
 
     const entry = history.find(e => e.id === id);
     if (entry) {
+      // Stop artifact server if running
+      if (activeServers.has(id)) {
+        await stopArtifactServer(id);
+      }
+
       // Delete the output file
       try {
         await fs.unlink(path.join(__dirname, entry.outputPath));
@@ -216,6 +370,70 @@ app.delete('/api/history/:id', async (req, res) => {
   } catch (error) {
     res.status(500).json({ success: false, error: error.message });
   }
+});
+
+// Start serving artifact
+app.post('/api/serve/:id', async (req, res) => {
+  try {
+    const id = req.params.id;
+    const history = await loadHistory();
+    const entry = history.find(e => e.id === id);
+
+    if (!entry) {
+      return res.status(404).json({ success: false, error: 'Entry not found' });
+    }
+
+    const zipPath = path.join(__dirname, entry.outputPath);
+
+    // Check if ZIP exists
+    try {
+      await fs.access(zipPath);
+    } catch (error) {
+      return res.status(404).json({ success: false, error: 'Artifact file not found' });
+    }
+
+    // Start server
+    const serverInfo = await startArtifactServer(id, zipPath);
+
+    res.json({
+      success: true,
+      serving: true,
+      port: serverInfo.port,
+      url: serverInfo.url
+    });
+  } catch (error) {
+    console.error('Error starting artifact server:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// Stop serving artifact
+app.post('/api/stop/:id', async (req, res) => {
+  try {
+    const id = req.params.id;
+    const stopped = await stopArtifactServer(id);
+
+    if (stopped) {
+      res.json({ success: true, serving: false });
+    } else {
+      res.status(404).json({ success: false, error: 'Server not found or already stopped' });
+    }
+  } catch (error) {
+    console.error('Error stopping artifact server:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// Get active servers
+app.get('/api/servers', (req, res) => {
+  const servers = {};
+  for (const [id, info] of activeServers.entries()) {
+    servers[id] = {
+      port: info.port,
+      url: info.url
+    };
+  }
+  res.json({ success: true, servers });
 });
 
 // Health check

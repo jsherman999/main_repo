@@ -611,9 +611,62 @@ textarea {
     color: white;
 }
 
+.btn-small.btn-success {
+    border-color: var(--success);
+    color: var(--success);
+}
+
+.btn-small.btn-success:hover {
+    background: var(--success);
+    border-color: var(--success);
+    color: white;
+}
+
+.btn-small.btn-warning {
+    border-color: var(--warning);
+    color: var(--warning);
+}
+
+.btn-small.btn-warning:hover {
+    background: var(--warning);
+    border-color: var(--warning);
+    color: white;
+}
+
 .btn-small svg {
     width: 14px;
     height: 14px;
+}
+
+/* Server URL Display */
+.server-url {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 12px;
+    background: rgba(16, 185, 129, 0.1);
+    border: 1px solid rgba(16, 185, 129, 0.3);
+    border-radius: 8px;
+    margin-bottom: 12px;
+    font-size: 0.9rem;
+    color: var(--success);
+}
+
+.server-url svg {
+    width: 18px;
+    height: 18px;
+    flex-shrink: 0;
+}
+
+.server-link {
+    color: var(--success);
+    text-decoration: none;
+    font-weight: 600;
+    word-break: break-all;
+}
+
+.server-link:hover {
+    text-decoration: underline;
 }
 
 /* Utility Classes */

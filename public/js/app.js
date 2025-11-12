@@ -1,5 +1,6 @@
 // App State
 let currentFile = null;
+let activeServers = {}; // Track active artifact servers
 
 // DOM Elements
 const dropZone = document.getElementById('drop-zone');
@@ -25,6 +26,7 @@ const statusIndicator = document.getElementById('status-indicator');
 // Initialize
 document.addEventListener('DOMContentLoaded', () => {
     checkHealth();
+    loadActiveServers();
     loadHistory();
     setupEventListeners();
 });
@@ -291,6 +293,15 @@ function displayHistory(history) {
                 </span>
             </div>
 
+            ${activeServers[entry.id] ? `
+                <div class="server-url">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
+                    </svg>
+                    <span>Serving at: <a href="${activeServers[entry.id].url}" target="_blank" class="server-link">${activeServers[entry.id].url}</a></span>
+                </div>
+            ` : ''}
+
             <div class="history-item-actions">
                 <a href="/api/download/${entry.outputFilename}" download="${entry.outputFilename}" class="btn-small">
                     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -298,6 +309,21 @@ function displayHistory(history) {
                     </svg>
                     Download
                 </a>
+                ${activeServers[entry.id] ? `
+                    <button onclick="stopServing('${entry.id}')" class="btn-small btn-warning">
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                        Stop
+                    </button>
+                ` : `
+                    <button onclick="startServing('${entry.id}')" class="btn-small btn-success">
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 12h14M12 5l7 7-7 7" />
+                        </svg>
+                        Serve
+                    </button>
+                `}
                 <button onclick="deleteHistoryItem('${entry.id}')" class="btn-small btn-danger">
                     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
@@ -324,12 +350,78 @@ async function deleteHistoryItem(id) {
 
         if (data.success) {
             showNotification('Item deleted successfully', 'success');
+            await loadActiveServers();
             loadHistory();
         } else {
             throw new Error(data.error);
         }
     } catch (error) {
         showNotification('Failed to delete item: ' + error.message, 'error');
+    }
+}
+
+// Artifact Server Management
+
+async function loadActiveServers() {
+    try {
+        const response = await fetch('/api/servers');
+        const data = await response.json();
+
+        if (data.success) {
+            activeServers = data.servers;
+        }
+    } catch (error) {
+        console.error('Failed to load active servers:', error);
+    }
+}
+
+async function startServing(id) {
+    try {
+        const button = event.target.closest('button');
+        button.disabled = true;
+        button.textContent = 'Starting...';
+
+        const response = await fetch(`/api/serve/${id}`, {
+            method: 'POST'
+        });
+
+        const data = await response.json();
+
+        if (data.success) {
+            activeServers[id] = { port: data.port, url: data.url };
+            showNotification(`Server started at ${data.url}`, 'success');
+            loadHistory();
+        } else {
+            throw new Error(data.error);
+        }
+    } catch (error) {
+        showNotification('Failed to start server: ' + error.message, 'error');
+        loadHistory();
+    }
+}
+
+async function stopServing(id) {
+    try {
+        const button = event.target.closest('button');
+        button.disabled = true;
+        button.textContent = 'Stopping...';
+
+        const response = await fetch(`/api/stop/${id}`, {
+            method: 'POST'
+        });
+
+        const data = await response.json();
+
+        if (data.success) {
+            delete activeServers[id];
+            showNotification('Server stopped', 'success');
+            loadHistory();
+        } else {
+            throw new Error(data.error);
+        }
+    } catch (error) {
+        showNotification('Failed to stop server: ' + error.message, 'error');
+        loadHistory();
     }
 }
 
@@ -389,5 +481,7 @@ function showNotification(message, type = 'info') {
     alert(message);
 }
 
-// Make deleteHistoryItem available globally
+// Make functions available globally
 window.deleteHistoryItem = deleteHistoryItem;
+window.startServing = startServing;
+window.stopServing = stopServing;

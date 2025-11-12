@@ -12,6 +12,7 @@ output/
 # Uploads and data
 uploads/
 data/
+temp/
 
 # Logs
 logs/
