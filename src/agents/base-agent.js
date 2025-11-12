@@ -69,13 +69,28 @@ class BaseAgent {
 
       try {
         // Second attempt: try to fix common issues
-        // Remove trailing commas before closing brackets/braces
+        // 1. Remove trailing commas before closing brackets/braces
         jsonText = jsonText.replace(/,(\s*[}\]])/g, '$1');
+
+        // 2. Fix missing commas between array elements (object followed by object)
+        jsonText = jsonText.replace(/\}(\s*)\{/g, '},\n{');
+
+        // 3. Fix missing commas between array elements (closing brace, newline, opening brace)
+        jsonText = jsonText.replace(/\}\s*\n\s*\{/g, '},\n{');
 
         return JSON.parse(jsonText);
       } catch (secondError) {
-        // If still failing, log the problematic JSON for debugging
-        console.error('Failed to parse JSON after cleanup:');
+        // Third attempt: Save to file for debugging
+        console.error('Failed to parse JSON after cleanup, saving to file...');
+
+        // Save debug file asynchronously (don't await to avoid blocking)
+        fs.writeFile('debug_json_error.txt', jsonText, 'utf-8').then(() => {
+          console.error(`Debug JSON saved to: debug_json_error.txt`);
+        }).catch(err => {
+          console.error('Could not save debug file:', err.message);
+        });
+
+        // Log error details
         console.error('Error:', secondError.message);
 
         // Log a snippet around the error position if available
@@ -83,14 +98,14 @@ class BaseAgent {
           const posMatch = secondError.message.match(/position (\d+)/);
           if (posMatch) {
             const pos = parseInt(posMatch[1]);
-            const start = Math.max(0, pos - 100);
-            const end = Math.min(jsonText.length, pos + 100);
+            const start = Math.max(0, pos - 200);
+            const end = Math.min(jsonText.length, pos + 200);
             console.error('Context around error position:');
             console.error(jsonText.substring(start, end));
           }
         }
 
-        throw new Error(`JSON parsing failed: ${secondError.message}. Check agent response format.`);
+        throw new Error(`JSON parsing failed: ${secondError.message}. Check agent response format. Debug file saved to debug_json_error.txt`);
       }
     }
   }
