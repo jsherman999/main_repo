@@ -1,0 +1,70 @@
+{
+  "orchestrator": {
+    "model": "claude-sonnet-4-20250514",
+    "role": "coordinator",
+    "max_tokens": 4000,
+    "temperature": 1.0,
+    "capabilities": [
+      "workflow_planning",
+      "task_delegation",
+      "result_synthesis",
+      "error_handling"
+    ]
+  },
+  "analyst": {
+    "model": "claude-sonnet-4-20250514",
+    "role": "ui_analyzer",
+    "max_tokens": 8000,
+    "temperature": 0.8,
+    "capabilities": [
+      "vision_analysis",
+      "element_detection",
+      "layout_recognition",
+      "spatial_reasoning"
+    ],
+    "specialization": "computer_vision",
+    "rationale": "Sonnet provides superior vision capabilities for accurate UI analysis"
+  },
+  "content_writer": {
+    "model": "claude-sonnet-4-20250514",
+    "role": "documentation_writer",
+    "max_tokens": 12000,
+    "temperature": 0.9,
+    "capabilities": [
+      "tooltip_generation",
+      "workflow_documentation",
+      "technical_writing",
+      "educational_content"
+    ],
+    "specialization": "technical_documentation",
+    "rationale": "Sonnet excels at nuanced, high-quality content generation"
+  },
+  "html_builder": {
+    "model": "claude-3-5-haiku-20241022",
+    "role": "code_generator",
+    "max_tokens": 16000,
+    "temperature": 0.7,
+    "capabilities": [
+      "html_generation",
+      "css_styling",
+      "javascript_coding",
+      "template_processing"
+    ],
+    "specialization": "web_development",
+    "rationale": "Haiku is fast and efficient for code generation from structured data"
+  },
+  "validator": {
+    "model": "claude-3-5-haiku-20241022",
+    "role": "quality_assurance",
+    "max_tokens": 4000,
+    "temperature": 0.3,
+    "capabilities": [
+      "html_validation",
+      "content_review",
+      "positioning_check",
+      "quality_assurance"
+    ],
+    "specialization": "validation",
+    "rationale": "Haiku provides fast, reliable validation with lower cost"
+  }
+}

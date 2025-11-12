@@ -1,0 +1,58 @@
+{
+  "selection_rules": {
+    "vision_tasks": {
+      "model": "claude-sonnet-4-20250514",
+      "reason": "Superior vision capabilities for UI analysis"
+    },
+    "complex_reasoning": {
+      "model": "claude-sonnet-4-20250514",
+      "reason": "Best for multi-step reasoning and planning"
+    },
+    "content_generation": {
+      "model": "claude-sonnet-4-20250514",
+      "reason": "High-quality, nuanced writing"
+    },
+    "code_generation": {
+      "model": "claude-3-5-haiku-20241022",
+      "reason": "Fast, efficient, cost-effective for structured generation"
+    },
+    "validation": {
+      "model": "claude-3-5-haiku-20241022",
+      "reason": "Quick validation with good accuracy"
+    }
+  },
+  "cost_optimization": {
+    "strategy": "hybrid",
+    "description": "Use Sonnet for cognitive tasks, Haiku for execution",
+    "estimated_savings": "40-50% vs all-Sonnet approach"
+  },
+  "performance_targets": {
+    "simple_interface": {
+      "model_mix": "50% Sonnet, 50% Haiku",
+      "target_time": "60 seconds",
+      "target_cost": "$0.10"
+    },
+    "medium_interface": {
+      "model_mix": "60% Sonnet, 40% Haiku",
+      "target_time": "120 seconds",
+      "target_cost": "$0.20"
+    },
+    "complex_interface": {
+      "model_mix": "75% Sonnet, 25% Haiku",
+      "target_time": "180 seconds",
+      "target_cost": "$0.35"
+    }
+  },
+  "pricing": {
+    "claude-sonnet-4-20250514": {
+      "input": 3.0,
+      "output": 15.0,
+      "unit": "per 1M tokens"
+    },
+    "claude-3-5-haiku-20241022": {
+      "input": 1.0,
+      "output": 5.0,
+      "unit": "per 1M tokens"
+    }
+  }
+}
