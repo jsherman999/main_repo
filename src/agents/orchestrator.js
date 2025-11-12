@@ -25,7 +25,7 @@ class OrchestratorAgent {
     this.agents.analyst = new AnalystAgent({
       apiKey: this.apiKey,
       model: 'claude-sonnet-4-5-20250929',
-      maxTokens: 8000,
+      maxTokens: 16000,
       temperature: 0.8
     });
 
