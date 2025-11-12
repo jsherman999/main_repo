@@ -1,0 +1,39 @@
+{
+  "name": "screenshot-documenter",
+  "version": "1.0.0",
+  "description": "Multi-agent screenshot documentation generator using Claude Code",
+  "type": "module",
+  "main": "src/main.js",
+  "scripts": {
+    "start": "node src/main.js",
+    "test": "node tests/integration-test.js",
+    "dev": "node --watch src/main.js"
+  },
+  "keywords": [
+    "documentation",
+    "screenshot",
+    "multi-agent",
+    "claude",
+    "ai",
+    "automation"
+  ],
+  "author": "Your Name",
+  "license": "MIT",
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.32.0",
+    "dotenv": "^16.4.5",
+    "jszip": "^3.10.1",
+    "uuid": "^10.0.0"
+  },
+  "devDependencies": {},
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/yourusername/screenshot-documenter.git"
+  },
+  "bugs": {
+    "url": "https://github.com/yourusername/screenshot-documenter/issues"
+  }
+}
