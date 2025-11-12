@@ -39,7 +39,7 @@ class OrchestratorAgent {
     this.agents.builder = new BuilderAgent({
       apiKey: this.apiKey,
       model: 'claude-3-5-haiku-20241022',
-      maxTokens: 16000,
+      maxTokens: 8000,
       temperature: 0.7
     });
 
