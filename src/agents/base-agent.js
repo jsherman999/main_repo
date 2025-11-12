@@ -49,15 +49,50 @@ class BaseAgent {
   }
 
   /**
-   * Extract JSON from response text
+   * Extract JSON from response text with improved error handling
    */
   extractJSON(text) {
     // Try to find JSON in the response
+    // Look for JSON that starts with { and ends with }
     const jsonMatch = text.match(/\{[\s\S]*\}/);
     if (!jsonMatch) {
       throw new Error('No JSON found in response');
     }
-    return JSON.parse(jsonMatch[0]);
+
+    let jsonText = jsonMatch[0];
+
+    try {
+      // First attempt: parse as-is
+      return JSON.parse(jsonText);
+    } catch (firstError) {
+      console.warn('Initial JSON parse failed, attempting cleanup...');
+
+      try {
+        // Second attempt: try to fix common issues
+        // Remove trailing commas before closing brackets/braces
+        jsonText = jsonText.replace(/,(\s*[}\]])/g, '$1');
+
+        return JSON.parse(jsonText);
+      } catch (secondError) {
+        // If still failing, log the problematic JSON for debugging
+        console.error('Failed to parse JSON after cleanup:');
+        console.error('Error:', secondError.message);
+
+        // Log a snippet around the error position if available
+        if (secondError.message.includes('position')) {
+          const posMatch = secondError.message.match(/position (\d+)/);
+          if (posMatch) {
+            const pos = parseInt(posMatch[1]);
+            const start = Math.max(0, pos - 100);
+            const end = Math.min(jsonText.length, pos + 100);
+            console.error('Context around error position:');
+            console.error(jsonText.substring(start, end));
+          }
+        }
+
+        throw new Error(`JSON parsing failed: ${secondError.message}. Check agent response format.`);
+      }
+    }
   }
 
   /**

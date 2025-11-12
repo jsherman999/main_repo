@@ -34,6 +34,9 @@ For each visible UI element, identify:
 - Detect standard patterns (File/Edit/View menus, etc.)
 
 ## Output Format
+
+**CRITICAL: Your response must be valid, parseable JSON. Do not include trailing commas. Ensure all arrays and objects are properly closed.**
+
 ```json
 {
   "metadata": {
@@ -76,6 +79,12 @@ For each visible UI element, identify:
   }
 }
 ```
+
+**Important JSON Requirements:**
+- NO trailing commas after the last item in arrays or objects
+- All strings must be properly quoted
+- All brackets and braces must be balanced
+- Numbers should not be quoted unless they are IDs
 
 ## Quality Standards
 
