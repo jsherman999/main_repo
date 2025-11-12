@@ -78,6 +78,25 @@ class BaseAgent {
         // 3. Fix missing commas between array elements (closing brace, newline, opening brace)
         jsonText = jsonText.replace(/\}\s*\n\s*\{/g, '},\n{');
 
+        // 4. Detect and fix incomplete JSON (hit token limit)
+        // Count opening and closing braces/brackets
+        const openBraces = (jsonText.match(/\{/g) || []).length;
+        const closeBraces = (jsonText.match(/\}/g) || []).length;
+        const openBrackets = (jsonText.match(/\[/g) || []).length;
+        const closeBrackets = (jsonText.match(/\]/g) || []).length;
+
+        if (openBraces !== closeBraces || openBrackets !== closeBrackets) {
+          console.warn(`Incomplete JSON detected - adding missing closures (braces: ${openBraces}/${closeBraces}, brackets: ${openBrackets}/${closeBrackets})`);
+
+          // Close missing brackets and braces
+          for (let i = 0; i < (openBrackets - closeBrackets); i++) {
+            jsonText += '\n]';
+          }
+          for (let i = 0; i < (openBraces - closeBraces); i++) {
+            jsonText += '\n}';
+          }
+        }
+
         return JSON.parse(jsonText);
       } catch (secondError) {
         // Third attempt: Save to file for debugging
