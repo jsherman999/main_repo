@@ -24,14 +24,14 @@ class OrchestratorAgent {
     // Initialize specialist agents
     this.agents.analyst = new AnalystAgent({
       apiKey: this.apiKey,
-      model: 'claude-sonnet-4-20250514',
+      model: 'claude-sonnet-4-5-20250929',
       maxTokens: 8000,
       temperature: 0.8
     });
 
     this.agents.content = new ContentAgent({
       apiKey: this.apiKey,
-      model: 'claude-sonnet-4-20250514',
+      model: 'claude-sonnet-4-5-20250929',
       maxTokens: 12000,
       temperature: 0.9
     });
@@ -85,8 +85,8 @@ class OrchestratorAgent {
       // Step 2: UI Analysis (Sonnet)
       console.log('🔍 Running UI Analysis...');
       if (debugCallback) {
-        debugCallback('start', 'Analyst Agent', 'Starting UI analysis with Claude Sonnet 4', {
-          model: 'claude-sonnet-4-20250514'
+        debugCallback('start', 'Analyst Agent', 'Starting UI analysis with Claude Sonnet 4.5', {
+          model: 'claude-sonnet-4-5-20250929'
         });
       }
 
@@ -106,8 +106,8 @@ class OrchestratorAgent {
       // Step 3: Content Generation (Sonnet)
       console.log('✍️ Running Content Generation...');
       if (debugCallback) {
-        debugCallback('start', 'Content Agent', 'Generating documentation content with Claude Sonnet 4', {
-          model: 'claude-sonnet-4-20250514'
+        debugCallback('start', 'Content Agent', 'Generating documentation content with Claude Sonnet 4.5', {
+          model: 'claude-sonnet-4-5-20250929'
         });
       }
 
@@ -266,7 +266,7 @@ Provide a structured JSON workflow plan with this format:
 
     try {
       const response = await this.client.messages.create({
-        model: 'claude-sonnet-4-20250514',
+        model: 'claude-sonnet-4-5-20250929',
         max_tokens: 2000,
         messages: [{
           role: 'user',
